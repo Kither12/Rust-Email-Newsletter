@@ -9,7 +9,7 @@ pub fn init_subscriber(
     filter: &str,
     sink: impl for<'a> MakeWriter<'a> + Send + Sync + 'static,
 ) {
-    //MUST CALL ONLY ONCE TIME
+    //MUST CALL ONLY ONCE
 
     LogTracer::init().expect("Failed to set logger");
 
