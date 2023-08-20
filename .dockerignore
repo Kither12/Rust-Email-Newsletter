@@ -1,0 +1,12 @@
+.env
+.env.example
+.sqlx/
+spec.yaml
+.gitignore
+README.md
+LICENSE
+target/
+tests/
+Dockerfile
+scripts/
+migrations/
