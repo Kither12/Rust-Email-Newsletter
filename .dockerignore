@@ -1,6 +1,5 @@
 .env
 .env.example
-.sqlx/
 spec.yaml
 .gitignore
 README.md
