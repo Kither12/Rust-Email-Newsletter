@@ -37,7 +37,7 @@ async fn insert_subscriber(form: &FormData, db_pool: &PgPool) -> Result<(), sqlx
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
-        println!("Failed here")
+        println!("Failed here");
         e
     })?;
     Ok(())
