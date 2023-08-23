@@ -11,6 +11,5 @@ async fn main() -> std::io::Result<()> {
     let configuration = get_configuration().expect("Failed to read configuration");
     let db_pool = PgPool::connect_lazy_with(configuration.database.with_db());
     let address = format!("{}:{}", configuration.application.host, configuration.application.port);
-    println!("{}", address);
     run(TcpListener::bind(address).unwrap(), db_pool)?.await
 }
