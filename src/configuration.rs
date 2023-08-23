@@ -45,6 +45,16 @@ impl DatabaseSettings {
             .port(self.port)
             .ssl_mode(ssl_mode)
     }
+    pub fn connection_string(&self) -> secrecy::Secret<String> {
+        secrecy::Secret::new(format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
+        ))
+    }
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
@@ -60,7 +70,11 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     config::Config::builder()
         .add_source(config::File::from(base_path.join("base")).required(true))
         .add_source(config::File::from(base_path.join(enviroment.as_str())).required(true))
-        // .add_source(config::Environment::with_prefix("app").prefix_separator("_").separator("__"))
+        .add_source(
+            config::Environment::with_prefix("app")
+                .prefix_separator("_")
+                .separator("__"),
+        )
         .build()
         .and_then(|x| x.try_deserialize())
 }
