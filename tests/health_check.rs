@@ -107,3 +107,18 @@ async fn check_form_data_unvalid(body: &str) {
         .expect("Failed to execute request.");
     assert_eq!(400, response.status().as_u16());
 }
+
+#[test_case("name=&email=kither_123%40gmail.com"; "name_is_empty")]
+#[tokio::test]
+async fn check_form_present_but_invalid(body: &str){
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!("{}/subscriptions", app.address))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(body.to_owned())
+        .send()
+        .await
+        .expect("Failed to execute request.");
+    assert_eq!(400, response.status().as_u16());
+}
