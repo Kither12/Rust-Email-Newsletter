@@ -74,7 +74,7 @@ async fn check_form_data_valid() {
     let response = client
         .post(format!("{}/subscriptions", app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body.to_owned())
+        .body(body)
         .send()
         .await
         .expect("Failed to execute request.");
@@ -93,7 +93,7 @@ async fn check_form_data_valid() {
 #[test_case("email=kither_123%40gmail.com"; "form_data_missing_name")]
 #[test_case(""; "missing_both_email_and_name")]
 #[tokio::test]
-async fn check_form_data_unvalid(body: &str) {
+async fn check_form_data_unvalid(body: &'static str) {
     let app = spawn_app().await;
 
     let client = reqwest::Client::new();
@@ -101,7 +101,7 @@ async fn check_form_data_unvalid(body: &str) {
     let response = client
         .post(format!("{}/subscriptions", app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body.to_owned())
+        .body(body)
         .send()
         .await
         .expect("Failed to execute request.");
@@ -109,14 +109,15 @@ async fn check_form_data_unvalid(body: &str) {
 }
 
 #[test_case("name=&email=kither_123%40gmail.com"; "name_is_empty")]
+#[test_case("name=sadfsdf&email="; "email_is_empty")]
 #[tokio::test]
-async fn check_form_present_but_invalid(body: &str){
+async fn check_form_present_but_invalid(body: &'static str){
     let app = spawn_app().await;
     let client = reqwest::Client::new();
     let response = client
         .post(format!("{}/subscriptions", app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body.to_owned())
+        .body(body)
         .send()
         .await
         .expect("Failed to execute request.");

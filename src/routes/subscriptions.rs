@@ -1,11 +1,11 @@
-use crate::domain::{NewSubscriber, SubscriberName};
+use crate::domain::NewSubscriber;
 use actix_web::{web, HttpResponse, Responder};
 use sqlx::PgPool;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
-    email: String,
-    name: String,
+    pub email: String,
+    pub name: String,
 }
 
 #[tracing::instrument(
@@ -15,15 +15,14 @@ pub struct FormData {
            subscriber_name=%form.name)
 )]
 pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> impl Responder {
-    let subscriber_name = match SubscriberName::parse(form.0.name) {
-        Ok(name) => name,
-        Err(_) => return HttpResponse::BadRequest(),
+    let new_subscriber = match form.0.try_into() {
+        Ok(subscriber) => subscriber,
+        Err(err) => {
+            tracing::error!("Failed to parsing form data: {}", err);
+            return HttpResponse::BadRequest();
+        }
     };
 
-    let new_subscriber = NewSubscriber {
-        email: form.0.email,
-        name: subscriber_name,
-    };
     match insert_subscriber(&new_subscriber, &db_pool).await {
         Ok(_) => HttpResponse::Ok(),
         Err(_) => HttpResponse::InternalServerError(),
@@ -42,7 +41,7 @@ async fn insert_subscriber(
         r#"INSERT INTO subscriptions (id, email, name, subscribed_at) 
                     VALUES ($1, $2, $3, $4)"#,
         uuid::Uuid::new_v4(),
-        subscriber.email,
+        subscriber.email.as_ref(),
         subscriber.name.as_ref(),
         chrono::Utc::now()
     )
