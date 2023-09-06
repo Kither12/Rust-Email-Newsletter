@@ -1,5 +1,5 @@
-use rust_email_newsletter::configuration::*;
 use rust_email_newsletter::telemetry::init_subscriber;
+use rust_email_newsletter::{configuration::*, email_client::EmailClient};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::{net::TcpListener, sync::Once};
 use test_case::test_case;
@@ -12,10 +12,9 @@ pub struct TestApp {
 }
 
 async fn spawn_app() -> TestApp {
-    if std::env::var("TEST_LOG").is_ok(){
+    if std::env::var("TEST_LOG").is_ok() {
         INIT_SUBSCRIBER.call_once(|| init_subscriber("email_newsletter", "info", std::io::stdout));
-    }
-    else{
+    } else {
         INIT_SUBSCRIBER.call_once(|| init_subscriber("email_newsletter", "info", std::io::sink));
     }
 
@@ -25,14 +24,22 @@ async fn spawn_app() -> TestApp {
 
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
-    let server = rust_email_newsletter::startup::run(listener, db_pool.clone())
-        .expect("Failed to bind address");
+    let server = rust_email_newsletter::startup::run(
+        listener,
+        db_pool.clone(),
+        EmailClient::new(
+            configuration.email_client.user_name,
+            configuration.email_client.password,
+            configuration.email_client.user_mail,
+        ),
+    )
+    .expect("Failed to bind address");
     tokio::spawn(server);
     let address = format!("http://127.0.0.1:{}", port);
     TestApp { address, db_pool }
 }
 
-async fn config_database(config: &DatabaseSettings) -> PgPool{
+async fn config_database(config: &DatabaseSettings) -> PgPool {
     PgConnection::connect_with(&config.without_db())
         .await
         .expect("Failed to connect to Postgres")
@@ -60,7 +67,7 @@ async fn health_check_works() {
         .get(format!("{}/health_check", app.address))
         .send()
         .await
-        .expect("Failed to execute request.");
+        .expect("Failed to execute request");
     assert_eq!(200, response.status().as_u16());
     assert_eq!(Some(0), response.content_length());
 }
@@ -69,7 +76,7 @@ async fn health_check_works() {
 async fn check_form_data_valid() {
     let app = spawn_app().await;
     let client = reqwest::Client::new();
-    let body = "name=kither%20god&email=kither_123%40gmail.com";
+    let body = "name=kither%20god&email=toantqm2509%40gmail.com";
 
     let response = client
         .post(format!("{}/subscriptions", app.address))
@@ -77,7 +84,7 @@ async fn check_form_data_valid() {
         .body(body)
         .send()
         .await
-        .expect("Failed to execute request.");
+        .expect("Failed to execute request");
     assert_eq!(200, response.status().as_u16());
 
     let saved = sqlx::query!("SELECT email, name FROM subscriptions")
@@ -86,7 +93,7 @@ async fn check_form_data_valid() {
         .expect("Failed to fetch saved subscription");
 
     assert_eq!(saved.name, "kither god");
-    assert_eq!(saved.email, "kither_123@gmail.com");
+    assert_eq!(saved.email, "toantqm2509@gmail.com");
 }
 
 #[test_case("name=kither%20god"; "form_data_missing_email")]
@@ -104,14 +111,15 @@ async fn check_form_data_unvalid(body: &'static str) {
         .body(body)
         .send()
         .await
-        .expect("Failed to execute request.");
+        .expect("Failed to execute request");
     assert_eq!(400, response.status().as_u16());
 }
 
 #[test_case("name=&email=kither_123%40gmail.com"; "name_is_empty")]
 #[test_case("name=sadfsdf&email="; "email_is_empty")]
+#[test_case("name=sadfsdf&email=dsrgerg"; "email_is_invalid")]
 #[tokio::test]
-async fn check_form_present_but_invalid(body: &'static str){
+async fn check_form_present_but_unvalid(body: &'static str) {
     let app = spawn_app().await;
     let client = reqwest::Client::new();
     let response = client
@@ -120,6 +128,6 @@ async fn check_form_present_but_invalid(body: &'static str){
         .body(body)
         .send()
         .await
-        .expect("Failed to execute request.");
+        .expect("Failed to execute request");
     assert_eq!(400, response.status().as_u16());
 }

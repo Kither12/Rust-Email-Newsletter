@@ -1,4 +1,4 @@
-use crate::domain::NewSubscriber;
+use crate::{domain::Subscriber, email_client::EmailClient};
 use actix_web::{web, HttpResponse, Responder};
 use sqlx::PgPool;
 
@@ -10,11 +10,11 @@ pub struct FormData {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, db_pool),
+    skip(form, db_pool, email_client),
     fields(subscriber_email=%form.name,
            subscriber_name=%form.name)
 )]
-pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> impl Responder {
+pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>, email_client: web::Data<EmailClient>) -> impl Responder {
     let new_subscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
         Err(err) => {
@@ -23,10 +23,22 @@ pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) ->
         }
     };
 
-    match insert_subscriber(&new_subscriber, &db_pool).await {
-        Ok(_) => HttpResponse::Ok(),
-        Err(_) => HttpResponse::InternalServerError(),
-    }
+    let _ = match insert_subscriber(&new_subscriber, &db_pool).await {
+        Ok(_) => (),
+        Err(err) => {
+            tracing::error!("Failed to insert subscriber: {}", err);
+            return HttpResponse::InternalServerError();
+        }
+    };
+    
+    let _ = match email_client.send_confirmation(&new_subscriber).await{
+        Ok(_) =>(),
+        Err(err) => {
+            println!("Failed to sending email: {}", err);
+            return HttpResponse::InternalServerError();
+        }
+    };
+    return HttpResponse::Ok();
 }
 
 #[tracing::instrument(
@@ -34,14 +46,15 @@ pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) ->
     skip(subscriber, db_pool)
 )]
 async fn insert_subscriber(
-    subscriber: &NewSubscriber,
+    subscriber: &Subscriber,
     db_pool: &PgPool,
 ) -> Result<(), sqlx::Error> {
+    let subscriber_mail: &str = subscriber.email.as_ref();
     sqlx::query!(
         r#"INSERT INTO subscriptions (id, email, name, subscribed_at) 
                     VALUES ($1, $2, $3, $4)"#,
         uuid::Uuid::new_v4(),
-        subscriber.email.as_ref(),
+        subscriber_mail,
         subscriber.name.as_ref(),
         chrono::Utc::now()
     )

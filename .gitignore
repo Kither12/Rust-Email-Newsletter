@@ -1,1 +1,4 @@
 /target
+/scripts/run.sh
+/scripts/test.sh
+/scripts/exporting.sh

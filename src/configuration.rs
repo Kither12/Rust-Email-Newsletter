@@ -1,4 +1,4 @@
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 
@@ -6,6 +6,7 @@ use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
 }
 
 #[derive(serde::Deserialize)]
@@ -55,6 +56,13 @@ impl DatabaseSettings {
             self.database_name
         ))
     }
+}
+
+#[derive(serde::Deserialize)]
+pub struct EmailClientSettings{
+    pub user_name: String,
+    pub user_mail: String,
+    pub password: Secret<String>,
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {

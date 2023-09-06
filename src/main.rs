@@ -1,7 +1,7 @@
 use rust_email_newsletter::configuration::*;
+use rust_email_newsletter::email_client::EmailClient;
 use rust_email_newsletter::startup::run;
 use rust_email_newsletter::telemetry::init_subscriber;
-use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use std::net::TcpListener;
 
@@ -11,7 +11,19 @@ async fn main() -> std::io::Result<()> {
 
     let configuration = get_configuration().expect("Failed to read configuration");
     let db_pool = PgPool::connect_lazy_with(configuration.database.with_db());
-    println!("{}", configuration.database.connection_string().expose_secret());
-    let address = format!("{}:{}", configuration.application.host, configuration.application.port);
-    run(TcpListener::bind(address).unwrap(), db_pool)?.await
+
+    let address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
+    run(
+        TcpListener::bind(address).unwrap(),
+        db_pool,
+        EmailClient::new(
+            configuration.email_client.user_name,
+            configuration.email_client.password,
+            configuration.email_client.user_mail,
+        ),
+    )?
+    .await
 }
