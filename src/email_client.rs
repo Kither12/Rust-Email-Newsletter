@@ -13,15 +13,15 @@ pub struct EmailClient {
 }
 
 impl EmailClient {
-    pub fn new(username: String, password: Secret<String>, user_mail: String) -> Self {
-        let creds = Credentials::new(username.clone(), password.expose_secret().to_owned());
+    pub fn new(username: &String, password: &Secret<String>, user_mail: &String) -> Self {
+        let creds = Credentials::new(username.to_owned(), password.expose_secret().to_owned());
         let mailer: AsyncSmtpTransport<Tokio1Executor> =
             AsyncSmtpTransport::<Tokio1Executor>::relay("smtp.gmail.com")
                 .unwrap()
                 .credentials(creds)
                 .build();
         let user_mailbox: Mailbox = Mailbox::new(
-            None,
+            Some(username.to_owned()),
             user_mail
                 .parse::<Address>()
                 .expect("Failed to parse user mail"),
