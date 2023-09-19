@@ -42,19 +42,27 @@ impl EmailClient {
             .from(self.user_mailbox.clone())
             .to(Mailbox::new(Some(recipent_name), recipent_mail))
             .subject(subject)
-            .header(ContentType::TEXT_PLAIN)
+            .header(ContentType::TEXT_HTML)
             .body(text_content.to_owned())
             .expect("Failed to create email");
         self.mailer.send(email).await
     }
+    pub fn get_confirmation_link(base_url: &str, subscription_token: &str) -> String{
+        format!("{}/subscriptions/confirm?subscription_token={}", base_url, subscription_token)
+    }
     pub async fn send_confirmation(
         &self,
         subscriber: &Subscriber,
+        base_url: &String,
+        subscription_token: &String,
     ) -> Result<lettre::transport::smtp::response::Response, lettre::transport::smtp::Error> {
-        //Must be in somewhere else ig
+        let confimation_link = EmailClient::get_confirmation_link(base_url, subscription_token);
         let subject = "Kither's newsletter email confimation";
-        let text_content = "Hello, you are subscribing to my newsletter so this is a confimation mail";
+        let html_body = format!(
+            "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
+            confimation_link
+        );
 
-        self.send_email(subscriber.name.as_ref().to_owned(), subscriber.email.clone(), subject, text_content).await
+        self.send_email(subscriber.name.as_ref().to_owned(), subscriber.email.clone(), subject, &html_body).await
     }
 }

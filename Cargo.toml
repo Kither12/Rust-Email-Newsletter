@@ -40,15 +40,5 @@ unicode-segmentation = "1.10.1"
 validator = "0.16.1"
 reqwest = { version = "0.11.20", default-features = false, features = ["json", "rustls-tls"] }
 lettre = {version = "0.10.4", features = ["tokio1-native-tls"]}
-
-[dependencies.sqlx]
-version = "0.7.1"
-default-features = false
-features = [
-    "runtime-tokio-rustls",
-    "macros",
-    "postgres",
-    "uuid",
-    "chrono",
-    "migrate",
-]
+rand = { version = "0.8.5", features=["std_rng"] }
+sqlx = { version = "0.7.1", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
