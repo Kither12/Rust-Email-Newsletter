@@ -21,14 +21,29 @@ impl Application {
             "{}:{}",
             configuration.application.host, configuration.application.port
         );
+        let mailer = match configuration.email_client.test_sever {
+            false => EmailClient::get_gmail_mailer(
+                &configuration.email_client.user_name,
+                &configuration.email_client.password,
+            ),
+            true => EmailClient::get_test_mailer(
+                &configuration.mailcrab_sever.http_url,
+                &configuration.mailcrab_sever.smtp_port,
+            ),
+        };
         let email_client = EmailClient::new(
             &configuration.email_client.user_name,
-            &configuration.email_client.password,
             &configuration.email_client.user_mail,
+            mailer,
         );
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, db_pool, email_client, &*configuration.application.base_url)?;
+        let server = run(
+            listener,
+            db_pool,
+            email_client,
+            &*configuration.application.base_url,
+        )?;
         Ok(Self { port, server })
     }
     pub fn port(&self) -> u16 {

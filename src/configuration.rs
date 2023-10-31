@@ -7,6 +7,7 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
+    pub mailcrab_sever: MailCrabSettings,
 }
 
 #[derive(serde::Deserialize)]
@@ -60,10 +61,17 @@ impl DatabaseSettings {
 }
 
 #[derive(serde::Deserialize)]
-pub struct EmailClientSettings{
+pub struct EmailClientSettings {
     pub user_name: String,
     pub user_mail: String,
     pub password: Secret<String>,
+    pub test_sever: bool,
+}
+
+#[derive(serde::Deserialize)]
+pub struct MailCrabSettings {
+    pub smtp_port: u16,
+    pub http_url: String,
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {

@@ -13,13 +13,11 @@ pub struct EmailClient {
 }
 
 impl EmailClient {
-    pub fn new(username: &String, password: &Secret<String>, user_mail: &String) -> Self {
-        let creds = Credentials::new(username.to_owned(), password.expose_secret().to_owned());
-        let mailer: AsyncSmtpTransport<Tokio1Executor> =
-            AsyncSmtpTransport::<Tokio1Executor>::relay("smtp.gmail.com")
-                .unwrap()
-                .credentials(creds)
-                .build();
+    pub fn new(
+        username: &String,
+        user_mail: &String,
+        mailer: AsyncSmtpTransport<Tokio1Executor>,
+    ) -> Self {
         let user_mailbox: Mailbox = Mailbox::new(
             Some(username.to_owned()),
             user_mail
@@ -30,6 +28,26 @@ impl EmailClient {
             mailer,
             user_mailbox,
         }
+    }
+    pub fn get_gmail_mailer(
+        username: &String,
+        password: &Secret<String>,
+    ) -> AsyncSmtpTransport<Tokio1Executor> {
+        let creds = Credentials::new(username.to_owned(), password.expose_secret().to_owned());
+        AsyncSmtpTransport::<Tokio1Executor>::relay("smtp.gmail.com")
+            .expect("Failed to connect to gmail SMTP port")
+            .credentials(creds)
+            .build()
+    }
+    pub fn get_test_mailer(
+        http_url: &String,
+        smtp_port: &u16,
+    ) -> AsyncSmtpTransport<Tokio1Executor> {
+        AsyncSmtpTransport::<Tokio1Executor>::relay(http_url)
+            .expect("Failed to connect to mailcrab SMTP port")
+            .tls(lettre::transport::smtp::client::Tls::None)
+            .port(*smtp_port)
+            .build()
     }
     pub async fn send_email(
         &self,
@@ -45,10 +63,19 @@ impl EmailClient {
             .header(ContentType::TEXT_HTML)
             .body(text_content.to_owned())
             .expect("Failed to create email");
-        self.mailer.send(email).await
+        match self.mailer.send(email).await {
+            Ok(e) => Ok(e),
+            Err(e) => {
+                tracing::error!("Failed to send email: {}", e);
+                Err(e)
+            }
+        }
     }
-    pub fn get_confirmation_link(base_url: &str, subscription_token: &str) -> String{
-        format!("{}/subscriptions/confirm?subscription_token={}", base_url, subscription_token)
+    pub fn get_confirmation_link(base_url: &str, subscription_token: &str) -> String {
+        format!(
+            "{}/subscriptions/confirm?subscription_token={}",
+            base_url, subscription_token
+        )
     }
     pub async fn send_confirmation(
         &self,
@@ -63,6 +90,20 @@ impl EmailClient {
             confimation_link
         );
 
-        self.send_email(subscriber.name.as_ref().to_owned(), subscriber.email.clone(), subject, &html_body).await
+        match self
+            .send_email(
+                subscriber.name.as_ref().to_owned(),
+                subscriber.email.clone(),
+                subject,
+                &html_body,
+            )
+            .await
+        {
+            Ok(e) => Ok(e),
+            Err(e) => {
+                tracing::error!("Failed to send confimation: {}", e);
+                Err(e)
+            }
+        }
     }
 }

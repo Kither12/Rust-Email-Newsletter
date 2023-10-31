@@ -9,7 +9,3 @@ database:
   password: "password"
   database_name: "newsletter"
   require_ssl: false
-email_client:
-  base_url: "https://us9.api.mailchimp.com/3.0/ping"
-  API_KEY: "" #Create mailchimp account and fill this with the api key
-  USER_NAME: "" #Fill this with your mailchimp user name

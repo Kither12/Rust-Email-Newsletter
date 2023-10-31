@@ -36,3 +36,15 @@ async fn check_form_present_but_unvalid(body: &'static str) {
     let response = app.post_subscriptions(body).await;
     assert_eq!(400, response.status().as_u16());
 }
+
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    let app = spawn_app().await;
+    let body = "name=kither%20god&email=toantqm2509%40gmail.com";
+    sqlx::query!("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;",)
+        .execute(&app.db_pool)
+        .await
+        .unwrap();
+    let response = app.post_subscriptions(body.into()).await;
+    assert_eq!(response.status().as_u16(), 500);
+}

@@ -2,3 +2,8 @@ application:
   host: "127.0.0.1"
 database: 
   require_ssl: false
+email_client:
+  test_sever: true
+mailcrab_sever:
+  smtp_port: 1025
+  http_url: "127.0.0.1"
