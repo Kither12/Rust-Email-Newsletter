@@ -19,7 +19,7 @@ async fn confirmation_wrong_token_are_rejected() {
     let client = reqwest::Client::new();
     let confimation_link = EmailClient::get_confirmation_link(&app.address, "This must be wrong token");
     let response = client
-        .get(confimation_link)
+        .get(confimation_link.0)
         .send()
         .await
         .expect("Failed to execute request");
@@ -35,7 +35,7 @@ async fn check_confirmation_work_after_send_in_email() {
     let confimation_link = EmailClient::get_confirmation_link(&app.address, &subscription_token);
     let client = reqwest::Client::new();
     let response = client
-        .get(confimation_link)
+        .get(confimation_link.0)
         .send()
         .await
         .expect("Failed to execute request");

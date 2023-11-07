@@ -4,7 +4,10 @@ use rust_email_newsletter::telemetry::init_subscriber;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::Once;
 
+use crate::smtp_sever::open_smtp_sever;
+
 static INIT_SUBSCRIBER: Once = Once::new();
+static OPEN_SMTP_SEVER: Once = Once::new();
 
 pub struct TestApp {
     pub address: String,
@@ -17,6 +20,14 @@ impl TestApp {
             .post(&format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+    pub async fn post_newsletter(&self, body_json: serde_json::Value) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(&format!("{}/newsletter", &self.address))
+            .json(&body_json)
             .send()
             .await
             .expect("Failed to execute request.")
@@ -36,13 +47,21 @@ pub async fn spawn_app() -> TestApp {
         c.application.port = 0;
         c
     };
+    OPEN_SMTP_SEVER.call_once(|| {
+        open_smtp_sever((
+            configuration.smtp_sever.smtp_host,
+            configuration.smtp_sever.smtp_port,
+        ))
+        .expect("Failed to open smtp sever")
+    });
+
     let db_pool = config_database(&configuration.database).await;
     let application = Application::build(&configuration)
         .await
         .expect("Failed to build application");
     let address = format!("http://127.0.0.1:{}", application.port());
     tokio::spawn(application.run_until_stopped());
-    TestApp { address, db_pool}
+    TestApp { address, db_pool }
 }
 
 async fn config_database(config: &DatabaseSettings) -> PgPool {

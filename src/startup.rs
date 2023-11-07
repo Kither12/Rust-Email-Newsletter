@@ -2,6 +2,7 @@ use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::confirm;
 use crate::routes::health_check;
+use crate::routes::publish_newsletter;
 use crate::routes::subscribe;
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
@@ -27,8 +28,8 @@ impl Application {
                 &configuration.email_client.password,
             ),
             true => EmailClient::get_test_mailer(
-                &configuration.mailcrab_sever.http_url,
-                &configuration.mailcrab_sever.smtp_port,
+                &configuration.smtp_sever.smtp_host,
+                &configuration.smtp_sever.smtp_port,
             ),
         };
         let email_client = EmailClient::new(
@@ -71,6 +72,7 @@ pub fn run(
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
             .route("/subscriptions/confirm", web::get().to(confirm))
+            .route("/newsletter", web::post().to(publish_newsletter))
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())

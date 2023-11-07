@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
@@ -7,14 +9,14 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
-    pub mailcrab_sever: MailCrabSettings,
+    pub smtp_sever: SMTPSettings,
 }
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
-    pub host: String,
+    pub host: IpAddr,
     pub base_url: String,
 }
 
@@ -24,7 +26,7 @@ pub struct DatabaseSettings {
     pub password: secrecy::Secret<String>,
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
-    pub host: String,
+    pub host: IpAddr,
     pub database_name: String,
     pub require_ssl: bool,
 }
@@ -42,7 +44,7 @@ impl DatabaseSettings {
             sqlx::postgres::PgSslMode::Prefer
         };
         PgConnectOptions::new()
-            .host(&self.host)
+            .host(&self.host.to_string())
             .username(&self.username)
             .password(&self.password.expose_secret())
             .port(self.port)
@@ -69,9 +71,9 @@ pub struct EmailClientSettings {
 }
 
 #[derive(serde::Deserialize)]
-pub struct MailCrabSettings {
+pub struct SMTPSettings {
     pub smtp_port: u16,
-    pub http_url: String,
+    pub smtp_host: IpAddr,
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {

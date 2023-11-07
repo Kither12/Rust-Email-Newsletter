@@ -1,3 +1,5 @@
+use std::{time::Duration, net::IpAddr};
+
 use lettre::{
     message::{header::ContentType, Mailbox},
     transport::smtp::authentication::Credentials,
@@ -11,6 +13,7 @@ pub struct EmailClient {
     user_mailbox: Mailbox,
     mailer: AsyncSmtpTransport<Tokio1Executor>,
 }
+pub struct ConfirmationLink(pub String);
 
 impl EmailClient {
     pub fn new(
@@ -40,12 +43,13 @@ impl EmailClient {
             .build()
     }
     pub fn get_test_mailer(
-        http_url: &String,
+        smtp_host: &IpAddr,
         smtp_port: &u16,
     ) -> AsyncSmtpTransport<Tokio1Executor> {
-        AsyncSmtpTransport::<Tokio1Executor>::relay(http_url)
+        AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_host.to_string())
             .expect("Failed to connect to mailcrab SMTP port")
             .tls(lettre::transport::smtp::client::Tls::None)
+            .timeout(Some(Duration::from_secs(5)))
             .port(*smtp_port)
             .build()
     }
@@ -71,11 +75,11 @@ impl EmailClient {
             }
         }
     }
-    pub fn get_confirmation_link(base_url: &str, subscription_token: &str) -> String {
-        format!(
+    pub fn get_confirmation_link(base_url: &str, subscription_token: &str) -> ConfirmationLink {
+        ConfirmationLink(format!(
             "{}/subscriptions/confirm?subscription_token={}",
             base_url, subscription_token
-        )
+        ))
     }
     pub async fn send_confirmation(
         &self,
@@ -87,7 +91,7 @@ impl EmailClient {
         let subject = "Kither's newsletter email confimation";
         let html_body = format!(
             "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
-            confimation_link
+            confimation_link.0
         );
 
         match self
