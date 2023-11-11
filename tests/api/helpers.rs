@@ -2,9 +2,9 @@ use rust_email_newsletter::configuration::*;
 use rust_email_newsletter::startup::Application;
 use rust_email_newsletter::telemetry::init_subscriber;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::sync::Once;
+use std::sync::{Once, OnceLock};
 
-use crate::smtp_sever::open_smtp_sever;
+use crate::smtp_sever::*;
 
 static INIT_SUBSCRIBER: Once = Once::new();
 static OPEN_SMTP_SEVER: Once = Once::new();
@@ -47,13 +47,16 @@ pub async fn spawn_app() -> TestApp {
         c.application.port = 0;
         c
     };
-    OPEN_SMTP_SEVER.call_once(|| {
-        open_smtp_sever((
-            configuration.smtp_sever.smtp_host,
-            configuration.smtp_sever.smtp_port,
-        ))
-        .expect("Failed to open smtp sever")
-    });
+    
+    // OPEN_SMTP_SEVER.call_once(|| {
+    //     open_smtp_sever(
+    //         (
+    //             configuration.smtp_sever.smtp_host,
+    //             configuration.smtp_sever.smtp_port,
+    //         ),
+    //     )
+    //     .expect("Failed to open smtp sever")
+    // });
 
     let db_pool = config_database(&configuration.database).await;
     let application = Application::build(&configuration)
