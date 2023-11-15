@@ -2,16 +2,18 @@ use rust_email_newsletter::configuration::*;
 use rust_email_newsletter::startup::Application;
 use rust_email_newsletter::telemetry::init_subscriber;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::sync::{Once, OnceLock};
-
+use std::collections::HashSet;
+use std::sync::{Arc, Once, OnceLock, RwLock};
 use crate::smtp_sever::*;
 
 static INIT_SUBSCRIBER: Once = Once::new();
 static OPEN_SMTP_SEVER: Once = Once::new();
+static STORAGE: OnceLock<Arc<RwLock<HashSet<MailMessage>>>> = OnceLock::new();
 
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub storage: Arc<RwLock<HashSet<MailMessage>>>,
 }
 
 impl TestApp {
@@ -47,16 +49,18 @@ pub async fn spawn_app() -> TestApp {
         c.application.port = 0;
         c
     };
-    
-    // OPEN_SMTP_SEVER.call_once(|| {
-    //     open_smtp_sever(
-    //         (
-    //             configuration.smtp_sever.smtp_host,
-    //             configuration.smtp_sever.smtp_port,
-    //         ),
-    //     )
-    //     .expect("Failed to open smtp sever")
-    // });
+    let storage = STORAGE.get_or_init(|| Arc::new(RwLock::new(HashSet::default())));
+
+    OPEN_SMTP_SEVER.call_once(|| {
+        open_smtp_sever(
+            (
+                configuration.smtp_sever.smtp_host,
+                configuration.smtp_sever.smtp_port,
+            ),
+            storage.clone(),
+        )
+        .expect("Failed to start SMTP sever");
+    });
 
     let db_pool = config_database(&configuration.database).await;
     let application = Application::build(&configuration)
@@ -64,7 +68,7 @@ pub async fn spawn_app() -> TestApp {
         .expect("Failed to build application");
     let address = format!("http://127.0.0.1:{}", application.port());
     tokio::spawn(application.run_until_stopped());
-    TestApp { address, db_pool }
+    TestApp { address, db_pool, storage: storage.clone() }
 }
 
 async fn config_database(config: &DatabaseSettings) -> PgPool {
