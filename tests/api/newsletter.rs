@@ -26,12 +26,36 @@ async fn newsletter_are_delivered_to_confirmed_subscriber() {
     let app = spawn_app().await;
     create_confirm_subscriber(&app).await;
     let newsletter_request_body = serde_json::json!({
-        "title": "Newsletter title",
-        "content": {
-            "text": "Newsletter body as plain text",
-            "html": "<p>Newsletter body as HTML</p>",
-        }
+        "subject": "Newsletter title",
+        "content": "<p>Newsletter body as HTML</p>",
     });
     let response = app.post_newsletter(newsletter_request_body).await;
     assert_eq!(response.status().as_u16(), 200);
+}
+#[tokio::test]
+async fn newsletters_returns_400_for_invalid_data() {
+    // Arrange
+    let app = spawn_app().await;
+    let test_cases = vec![
+        (
+            serde_json::json!({
+                "text": "Newsletter body as plain text",
+            }),
+            "missing title",
+        ),
+        (
+            serde_json::json!({"subject": "Newsletter!"}),
+            "missing content",
+        ),
+    ];
+    for (invalid_body, error_message) in test_cases {
+        let response = app.post_newsletter(invalid_body).await;
+        // Assert
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not fail with 400 Bad Request when the payload was {}.",
+            error_message
+        );
+    }
 }

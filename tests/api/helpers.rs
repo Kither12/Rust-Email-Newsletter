@@ -1,4 +1,5 @@
 use rust_email_newsletter::configuration::*;
+use rust_email_newsletter::email_client::ConfirmationLink;
 use rust_email_newsletter::startup::Application;
 use rust_email_newsletter::telemetry::init_subscriber;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -33,6 +34,21 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+    pub fn check_confirmation_mail_exist(&self, confimation_link: ConfirmationLink) -> bool{
+        let mut html_body = format!(
+            "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
+            confimation_link.0
+        );
+        html_body.retain(|c| c.is_ascii_graphic());
+        for message in (*self.storage.read().expect("Cannot read from storage")).iter(){
+            let mut trim_message = message.html.clone();
+            trim_message.retain(|c| c.is_ascii_graphic());
+            if trim_message == html_body{
+                return true;
+            }
+        }
+        return false;
     }
 }
 

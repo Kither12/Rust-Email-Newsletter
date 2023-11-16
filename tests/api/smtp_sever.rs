@@ -8,10 +8,6 @@ use std::net::ToSocketAddrs;
 use std::sync::{Arc, RwLock};
 use std::collections::HashSet;
 
-/*
-The main purpose of SMTP sever is just for unit testing, but I still cover most of features that a mail sever should have
-*/
-
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, Hash)]
 pub struct Address {
     name: Option<String>,
@@ -59,16 +55,16 @@ impl From<&mail_parser::MessagePart<'_>> for Attachment {
 
 #[derive(Clone, Debug, Serialize, Default, PartialEq, Eq, Hash)]
 pub struct MailMessage {
-    from: Address,
-    to: Vec<Address>,
-    subject: String,
-    date: String,
-    size: String,
-    opened: bool,
-    text: String,
-    html: String,
-    attachments: Vec<Attachment>,
-    raw: String,
+    pub from: Address,
+    pub to: Vec<Address>,
+    pub subject: String,
+    pub date: String,
+    pub size: String,
+    pub opened: bool,
+    pub text: String,
+    pub html: String,
+    pub attachments: Vec<Attachment>,
+    pub raw: String,
     pub envelope_from: String,
     pub envelope_recipients: Vec<String>,
 }
