@@ -1,10 +1,10 @@
 use crate::smtp_sever::*;
-use base64::{engine::general_purpose, Engine as _};
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use rust_email_newsletter::configuration::*;
 use rust_email_newsletter::email_client::ConfirmationLink;
 use rust_email_newsletter::startup::Application;
 use rust_email_newsletter::telemetry::init_subscriber;
-use sha3::{Digest, Sha3_256};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::collections::HashSet;
 use std::sync::{Arc, Once, OnceLock, RwLock};
@@ -71,9 +71,11 @@ impl TestUser {
         }
     }
     async fn store(&self, pool: &PgPool) {
-        let mut hasher = Sha3_256::new();
-        hasher.update(&self.password);
-        let password_hash = general_purpose::STANDARD.encode(hasher.finalize());
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::default()
+            .hash_password(self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
 
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",

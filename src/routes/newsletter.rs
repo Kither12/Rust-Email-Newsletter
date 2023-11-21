@@ -3,11 +3,12 @@ use actix_web::http::header::HeaderValue;
 use actix_web::HttpResponseBuilder;
 use actix_web::{http::header::HeaderMap, web, HttpRequest, HttpResponse, Responder};
 use anyhow::Context;
+use argon2::password_hash::PasswordVerifier;
+use argon2::{Argon2, PasswordHash};
 use base64::{engine::general_purpose, Engine as _};
 use lettre::Address;
 use secrecy::ExposeSecret;
 use secrecy::Secret;
-use sha3::{Digest, Sha3_256};
 use sqlx::PgPool;
 
 use crate::{
@@ -148,19 +149,13 @@ async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, HttpResponseBuilder> {
-
-    let mut hasher = Sha3_256::new();
-    hasher.update(credentials.password.expose_secret());
-    let password_hash = general_purpose::STANDARD.encode(hasher.finalize());
-
-    let user_id: Option<_> = sqlx::query!(
+    let row: Option<_> = sqlx::query!(
         r#"
-            SELECT user_id
+            SELECT user_id, password_hash
             FROM users
-            WHERE username = $1 AND password_hash = $2
+            WHERE username = $1
         "#,
-        credentials.username,
-        password_hash
+        credentials.username
     )
     .fetch_optional(pool)
     .await
@@ -171,8 +166,26 @@ async fn validate_credentials(
         );
         HttpResponse::InternalServerError()
     })?;
-    user_id.map(|row| row.user_id).ok_or_else(|| {
-        tracing::error!("Invalid username or password.");
-        get_unauthorized_response()
-    })
+    let (expected_password_hash, user_id) = match row {
+        Some(row) => (row.password_hash, row.user_id),
+        None => {
+            tracing::error!("Failed to authorize the user");
+            return Err(get_unauthorized_response());
+        }
+    };
+    let expected_password_hash = PasswordHash::new(&expected_password_hash).map_err(|e| {
+        tracing::error!("Failed to parse Hash in PHC format: {}", e);
+        HttpResponse::InternalServerError()
+    })?;
+
+    Argon2::default()
+        .verify_password(
+            credentials.password.expose_secret().as_bytes(),
+            &expected_password_hash,
+        )
+        .map_err(|e| {
+            tracing::error!("Failed to authorize the user: {}", e);
+            get_unauthorized_response()
+        })?;
+    Ok(user_id)
 }
