@@ -1,11 +1,14 @@
+use crate::smtp_sever::*;
+use base64::{engine::general_purpose, Engine as _};
 use rust_email_newsletter::configuration::*;
 use rust_email_newsletter::email_client::ConfirmationLink;
 use rust_email_newsletter::startup::Application;
 use rust_email_newsletter::telemetry::init_subscriber;
+use sha3::{Digest, Sha3_256};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::collections::HashSet;
 use std::sync::{Arc, Once, OnceLock, RwLock};
-use crate::smtp_sever::*;
+use uuid::Uuid;
 
 static INIT_SUBSCRIBER: Once = Once::new();
 static OPEN_SMTP_SEVER: Once = Once::new();
@@ -15,6 +18,7 @@ pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
     pub storage: Arc<RwLock<HashSet<MailMessage>>>,
+    pub test_user: TestUser,
 }
 
 impl TestApp {
@@ -30,25 +34,56 @@ impl TestApp {
     pub async fn post_newsletter(&self, body_json: serde_json::Value) -> reqwest::Response {
         reqwest::Client::new()
             .post(&format!("{}/newsletter", &self.address))
+            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .json(&body_json)
             .send()
             .await
             .expect("Failed to execute request.")
     }
-    pub fn check_confirmation_mail_exist(&self, confimation_link: ConfirmationLink) -> bool{
+    pub fn check_confirmation_mail_exist(&self, confimation_link: ConfirmationLink) -> bool {
         let mut html_body = format!(
             "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
             confimation_link.0
         );
         html_body.retain(|c| c.is_ascii_graphic());
-        for message in (*self.storage.read().expect("Cannot read from storage")).iter(){
+        for message in (*self.storage.read().expect("Cannot read from storage")).iter() {
             let mut trim_message = message.html.clone();
             trim_message.retain(|c| c.is_ascii_graphic());
-            if trim_message == html_body{
+            if trim_message == html_body {
                 return true;
             }
         }
         return false;
+    }
+}
+
+pub struct TestUser {
+    pub user_id: Uuid,
+    pub username: String,
+    pub password: String,
+}
+impl TestUser {
+    pub fn generate() -> Self {
+        Self {
+            user_id: Uuid::new_v4(),
+            username: Uuid::new_v4().to_string(),
+            password: Uuid::new_v4().to_string(),
+        }
+    }
+    async fn store(&self, pool: &PgPool) {
+        let mut hasher = Sha3_256::new();
+        hasher.update(&self.password);
+        let password_hash = general_purpose::STANDARD.encode(hasher.finalize());
+
+        sqlx::query!(
+            "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",
+            self.user_id,
+            self.username,
+            password_hash,
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to store test user.");
     }
 }
 
@@ -84,7 +119,14 @@ pub async fn spawn_app() -> TestApp {
         .expect("Failed to build application");
     let address = format!("http://127.0.0.1:{}", application.port());
     tokio::spawn(application.run_until_stopped());
-    TestApp { address, db_pool, storage: storage.clone() }
+    let test_app = TestApp {
+        address,
+        db_pool,
+        storage: storage.clone(),
+        test_user: TestUser::generate(),
+    };
+    test_app.test_user.store(&test_app.db_pool).await;
+    test_app
 }
 
 async fn config_database(config: &DatabaseSettings) -> PgPool {
