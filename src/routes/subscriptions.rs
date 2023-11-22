@@ -36,22 +36,18 @@ pub async fn subscribe(
     let new_subscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
         Err(_) => {
-            return HttpResponse::with_body(StatusCode::BAD_REQUEST, String::default());
+            return HttpResponse::BadRequest();
         }
     };
 
     let mut transaction = match db_pool.begin().await {
         Ok(transaction) => transaction,
-        Err(_) => {
-            return HttpResponse::with_body(StatusCode::INTERNAL_SERVER_ERROR, String::default())
-        }
+        Err(_) => return HttpResponse::InternalServerError(),
     };
 
     let subscriber_id = match insert_subscriber(&new_subscriber, &mut transaction).await {
         Ok(subscriber_id) => subscriber_id,
-        Err(_) => {
-            return HttpResponse::with_body(StatusCode::INTERNAL_SERVER_ERROR, String::default())
-        }
+        Err(_) => return HttpResponse::InternalServerError(),
     };
 
     let subscription_token = generate_subscription_token();
@@ -60,7 +56,7 @@ pub async fn subscribe(
         .await
         .is_err()
     {
-        return HttpResponse::with_body(StatusCode::INTERNAL_SERVER_ERROR, String::default());
+        return HttpResponse::InternalServerError();
     };
 
     if email_client
@@ -68,14 +64,14 @@ pub async fn subscribe(
         .await
         .is_err()
     {
-        return HttpResponse::with_body(StatusCode::INTERNAL_SERVER_ERROR, String::default());
+        return HttpResponse::InternalServerError();
     };
 
-    if transaction.commit().await.is_err(){
-        return HttpResponse::with_body(StatusCode::INTERNAL_SERVER_ERROR, String::default());
+    if transaction.commit().await.is_err() {
+        return HttpResponse::InternalServerError();
     }
 
-    HttpResponse::with_body(StatusCode::OK, subscription_token)
+    HttpResponse::Ok()
 }
 
 #[tracing::instrument(

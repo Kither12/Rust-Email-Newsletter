@@ -4,6 +4,9 @@ database:
   require_ssl: false
 email_client:
   test_sever: true
+  user_name: "user"
+  user_mail: "mail"
+  user_password: "password"
 smtp_sever:
   smtp_port: 1025
   smtp_host: "127.0.0.1"

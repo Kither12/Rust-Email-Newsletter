@@ -17,27 +17,12 @@ async fn confirmation_without_token_are_rejected() {
 async fn confirmation_wrong_token_are_rejected() {
     let app = spawn_app().await;
     let client = reqwest::Client::new();
-    let confimation_link = EmailClient::get_confirmation_link(&app.address, "This must be wrong token");
+    let confimation_link =
+        EmailClient::get_confirmation_link(&app.address, "This must be wrong token");
     let response = client
         .get(confimation_link.0)
         .send()
         .await
         .expect("Failed to execute request");
     assert_eq!(401, response.status().as_u16());
-}
-#[tokio::test]
-async fn check_confirmation_work_after_send_in_email() {
-    let app = spawn_app().await;
-    let response = app
-        .post_subscriptions("name=testName&email=testEmail%40gmail.com")
-        .await;
-    let subscription_token = response.text().await.expect("Failed to get response");
-    let confimation_link = EmailClient::get_confirmation_link(&app.address, &subscription_token);
-    let client = reqwest::Client::new();
-    let response = client
-        .get(confimation_link.0)
-        .send()
-        .await
-        .expect("Failed to execute request");
-    assert_eq!(response.status().as_u16(), 200);
 }

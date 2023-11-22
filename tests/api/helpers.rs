@@ -93,7 +93,7 @@ pub async fn spawn_app() -> TestApp {
     if std::env::var("TEST_LOG").is_ok() {
         INIT_SUBSCRIBER.call_once(|| init_subscriber("email_newsletter", "error", std::io::stdout));
     } else {
-        INIT_SUBSCRIBER.call_once(|| init_subscriber("email_newsletter", "error", std::io::stdout));
+        INIT_SUBSCRIBER.call_once(|| init_subscriber("email_newsletter", "error", std::io::sink));
     }
 
     let configuration = {
